@@ -1,0 +1,6 @@
+/.direnv/
+/.zig-cache/
+/.zig-global-cache/
+/result
+/src/generated/
+/zig-out/
