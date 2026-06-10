@@ -1,0 +1,78 @@
+name: PR Guard
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+jobs:
+  readme-size-guard:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Compare README and enforce change scope
+        env:
+          EVENT_PATH: ${{ github.event_path }}
+        run: |
+          set -euo pipefail
+
+          base_sha="$(jq -r '.workflow_run.pull_requests[0].base.sha // empty' "$EVENT_PATH")"
+          head_sha="$(jq -r '.workflow_run.head_sha' "$EVENT_PATH")"
+
+          if [ -z "$base_sha" ]; then
+            echo "No PR base SHA found; skipping."
+            exit 0
+          fi
+
+          git fetch --no-tags --depth=1 origin "$base_sha" "$head_sha"
+
+          changed_files="$(git diff --name-only "$base_sha" "$head_sha")"
+
+          if ! printf '%s\n' "$changed_files" | grep -qx 'README.md'; then
+            echo "README.md unchanged; guard passes."
+            exit 0
+          fi
+
+          git show "$base_sha:README.md" >/tmp/base_README.md
+          git show "$head_sha:README.md" >/tmp/head_README.md
+
+          extract_size() {
+            sed -nE 's/^- Exact size of `result\/bin\/urls` - current best: `([0-9]+)` bytes$/\1/p' "$1"
+          }
+
+          base_size="$(extract_size /tmp/base_README.md)"
+          head_size="$(extract_size /tmp/head_README.md)"
+
+          if [ -z "$base_size" ] || [ -z "$head_size" ]; then
+            echo "Could not parse binary sizes from README.md" >&2
+            exit 1
+          fi
+
+          if [ "$head_size" -ge "$base_size" ]; then
+            echo "README.md changed, but size did not improve (base=$base_size, head=$head_size)." >&2
+            exit 1
+          fi
+
+          while IFS= read -r path; do
+            [ -z "$path" ] && continue
+            if [ "$path" = "README.md" ]; then
+              continue
+            fi
+            case "$path" in
+              src/*) ;;
+              *)
+                echo "README.md changed, but disallowed file also changed: $path" >&2
+                exit 1
+                ;;
+            esac
+          done <<EOF_FILES
+          $changed_files
+          EOF_FILES
+
+          echo "README.md improved and change scope is allowed."
