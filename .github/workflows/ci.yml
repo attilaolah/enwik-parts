@@ -8,27 +8,27 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v16
+    - name: Install Nix
+      uses: DeterminateSystems/nix-installer-action@v16
 
-      - name: Cache Nix store
-        uses: DeterminateSystems/magic-nix-cache-action@v8
+    - name: Cache Nix store
+      uses: DeterminateSystems/magic-nix-cache-action@v8
 
-      - name: Nix flake check
+    - name: Nix flake check
       run: nix flake check
 
-      - name: Nix build
+    - name: Nix build
       run: nix build
 
-      - name: Run urls-test
+    - name: Run urls-test
       run: nix run .#urls-test
 
-      - name: Re-generate README.md
+    - name: Re-generate README.md
       run: |
         nix build .#readme --out-link result-readme
         cp result-readme README.md
 
-      - name: Ensure README.md committed
+    - name: Ensure README.md committed
       run: git diff --exit-code -- README.md
