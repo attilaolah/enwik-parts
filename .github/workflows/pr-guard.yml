@@ -43,7 +43,9 @@ jobs:
           git show "$head_sha:README.md" >/tmp/head_README.md
 
           extract_size() {
-            sed -nE 's/^- Exact size of `result\/bin\/urls` - current best: `([0-9]+)` bytes$/\1/p' "$1"
+            sed -nE \
+              -e 's/^  - Compressed: ([0-9]+) bytes$/\1/p' \
+              "$1" | head -n1
           }
 
           base_size="$(extract_size /tmp/base_README.md)"
@@ -66,6 +68,7 @@ jobs:
             fi
             case "$path" in
               src/*) ;;
+              build.zig) ;;
               *)
                 echo "README.md changed, but disallowed file also changed: $path" >&2
                 exit 1
