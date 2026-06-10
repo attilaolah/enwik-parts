@@ -2,7 +2,11 @@ const std = @import("std");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
-    const optimize = b.standardOptimizeOption(.{});
+    const requested_optimize = b.standardOptimizeOption(.{});
+    const optimize: std.builtin.OptimizeMode = switch (requested_optimize) {
+        .Debug => .Debug,
+        .ReleaseFast, .ReleaseSafe, .ReleaseSmall => .ReleaseSmall,
+    };
 
     const urls_src_external = b.option([]const u8, "urls_src", "Path to the URLs input file") orelse
         b.graph.environ_map.get("ENWIK9_URLS") orelse
